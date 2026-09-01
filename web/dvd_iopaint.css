@@ -1,0 +1,175 @@
+.dvd-iopaint-editor {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: var(--dvd-widget-height, 300px);
+    padding: 6px;
+    color: var(--fg-color, #d7d7d7);
+    background: #17191c;
+    border: 1px solid #34383e;
+    border-radius: 6px;
+    user-select: none;
+}
+
+.dvd-iopaint-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 32px;
+    margin-bottom: 6px;
+}
+
+.dvd-iopaint-icon-button {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    color: #d7d7d7;
+    background: #24272c;
+    border: 1px solid #40454d;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.dvd-iopaint-icon-button:hover:not(:disabled) {
+    background: #30343a;
+    border-color: #6b727d;
+}
+
+.dvd-iopaint-icon-button.active {
+    color: #ffffff;
+    background: #3d6652;
+    border-color: #70a787;
+}
+
+.dvd-iopaint-icon-button:disabled {
+    color: #72777f;
+    cursor: default;
+}
+
+.dvd-iopaint-status {
+    min-width: 0;
+    margin-left: 4px;
+    overflow: hidden;
+    color: #aeb4bd;
+    font-size: 12px;
+    line-height: 30px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dvd-iopaint-status[data-kind="ready"] {
+    color: #78c69a;
+}
+
+.dvd-iopaint-status[data-kind="working"] {
+    color: #e0bd70;
+}
+
+.dvd-iopaint-status[data-kind="error"] {
+    color: #ef8585;
+}
+
+.dvd-iopaint-stage {
+    position: relative;
+    margin: 0 auto;
+    overflow: hidden;
+    box-sizing: border-box;
+    background-color: #0e1012;
+    background-image:
+        linear-gradient(45deg, #191c20 25%, transparent 25%),
+        linear-gradient(-45deg, #191c20 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #191c20 75%),
+        linear-gradient(-45deg, transparent 75%, #191c20 75%);
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    background-size: 16px 16px;
+    border: 1px solid #34383e;
+}
+
+.dvd-iopaint-editor.drop-ready .dvd-iopaint-stage {
+    border-color: #78c69a;
+    box-shadow: inset 0 0 0 1px #78c69a;
+}
+
+.dvd-iopaint-comparison {
+    position: relative;
+    display: none;
+    margin: 10px auto 0;
+    overflow: hidden;
+    box-sizing: border-box;
+    background: #0e1012;
+    border: 1px solid #34383e;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.dvd-iopaint-comparison.visible {
+    display: block;
+}
+
+.dvd-iopaint-comparison-after {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    clip-path: inset(0 0 0 var(--dvd-split, 50%));
+}
+
+.dvd-iopaint-comparison-divider {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--dvd-split, 50%);
+    width: 2px;
+    background: #ffffff;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 45%);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-1px);
+}
+
+.dvd-iopaint-comparison:hover .dvd-iopaint-comparison-divider,
+.dvd-iopaint-comparison.dragging .dvd-iopaint-comparison-divider {
+    opacity: 1;
+}
+
+.dvd-iopaint-base,
+.dvd-iopaint-mask,
+.dvd-iopaint-comparison-before,
+.dvd-iopaint-comparison-after canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.dvd-iopaint-base {
+    z-index: 1;
+}
+
+.dvd-iopaint-mask {
+    z-index: 2;
+    opacity: 0.62;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.dvd-iopaint-brush-cursor {
+    position: absolute;
+    z-index: 3;
+    display: none;
+    box-sizing: border-box;
+    border: 1px solid rgb(255 255 255 / 95%);
+    border-radius: 50%;
+    background: rgb(255 255 255 / 18%);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 45%);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.dvd-iopaint-brush-cursor.visible {
+    display: block;
+}
+
+.dvd-iopaint-editor.busy .dvd-iopaint-mask {
+    cursor: progress;
+    pointer-events: none;
+}

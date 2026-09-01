@@ -1,0 +1,11 @@
+DvD IOPaint Interactive Eraser
+
+The erase-model URLs, checksums, preprocessing behavior, and vendored runtime
+sources in this plugin are adapted from IOPaint 1.6.0, commit
+61a759fb3f332bacdce8b2813f4837495c9b86e0:
+https://github.com/Sanster/IOPaint
+
+IOPaint is licensed under the Apache License 2.0. The adapted implementation
+has been modified for an isolated package namespace, Python 3.13 compatibility,
+ComfyUI model paths, device handling, error handling, and the interactive node
+workflow.

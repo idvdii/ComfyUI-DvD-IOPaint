@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+.idea/
+.vscode/
+
+# Model weights are downloaded to ComfyUI/models/iopaint, never this repository.
+*.ckpt
+*.jit
+*.onnx
+*.pth
+*.pt
+*.safetensors
