@@ -1,9 +1,9 @@
 # ComfyUI-DvD-IOPaint
 
+[简体中文](README.zh-CN.md) · English
+
 An interactive object-removal node for ComfyUI, adapted from the erase-model
 runtime in [IOPaint](https://github.com/Sanster/IOPaint).
-
-在一个 ComfyUI 节点内完成图片载入、遮罩涂抹、自动消除、前后对比和连续编辑。
 
 ![DvD IOPaint demo](assets/demo.gif)
 
@@ -107,17 +107,6 @@ ComfyUI directory:
 ```bash
 python custom_nodes/ComfyUI-DvD-IOPaint/tests/test_smoke.py
 ```
-
-## 中文说明
-
-- 开启 `auto_run` 后，画完松开鼠标会自动运行，结果直接覆盖操作区底图。
-- 将图片拖到节点上即可替换输入图片并开始新的编辑。
-- 鼠标位于画布时会显示半透明画笔直径；按住 `Alt` 滚动滚轮可调节大小。
-- 不按 `Alt` 时保留 ComfyUI 原本的画布缩放操作。
-- 工具栏的普通撤销用于撤销尚未处理的笔画，历史按钮用于返回上一次已完成的消除结果。
-- 下方对比区左侧为处理前、右侧为处理后，可移动鼠标查看分界。
-- 模型首次使用时自动下载到 `ComfyUI/models/iopaint`，之后直接使用本地文件。
-- `Manga B&W Semantic` 仅推荐黑白漫画；彩色二次元图片优先尝试 AOT 或 Anime LaMa。
 
 ## Credits and license
 
