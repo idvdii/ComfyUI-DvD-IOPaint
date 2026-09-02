@@ -1,0 +1,7 @@
+# Optional dependencies for DvD IOPaint Mask Generator.
+#
+# Torch/CUDA are intentionally not listed: ComfyUI owns those builds.  The
+# default rembg dependency uses the CPU ONNX Runtime.  Users who already use a
+# compatible onnxruntime-gpu build should keep it and install rembg without
+# allowing pip to replace their ComfyUI Torch stack.
+rembg>=2.0.59,<3

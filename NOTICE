@@ -9,3 +9,19 @@ IOPaint is licensed under the Apache License 2.0. The adapted implementation
 has been modified for an isolated package namespace, Python 3.13 compatibility,
 ComfyUI model paths, device handling, error handling, and the interactive node
 workflow.
+
+The optional Mask Generator integrates the separately distributed `rembg`
+package (MIT, Daniel Gatis) for RemoveBG and ISNet Anime inference. `rembg`,
+its ONNX runtime, and the downloaded model weights retain their respective
+upstream licenses. This repository does not bundle those weights; they are
+fetched from the URLs used by the installed `rembg` release on first use.
+
+The SAM Interactive Segmentation node includes a vendored copy of the
+Segment Anything (SAM1) inference implementation from Meta Platforms, Inc.:
+https://github.com/facebookresearch/segment-anything
+
+That source is distributed under the Apache License 2.0. The vendored files
+retain their upstream copyright headers; this plugin only isolates the Python
+package namespace and adapts checkpoint/model-path handling for ComfyUI. SAM1
+checkpoints are downloaded at runtime from the URLs declared in `nodes.py` and
+are not included in this repository.

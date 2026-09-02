@@ -71,6 +71,19 @@ function outputImageUrl(image) {
 }
 
 
+async function loadOutputImage(image) {
+    const response = await fetch(outputImageUrl(image));
+    if (!response.ok) throw new Error(`Result fetch failed: ${response.status}`);
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+        return await loadImage(objectUrl);
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+}
+
+
 async function uploadImage(blob, filename, subfolder) {
     const form = new FormData();
     form.append("image", blob, filename);
@@ -150,9 +163,19 @@ function findEditor(detail) {
         const node = app.graph?.getNodeById?.(
             Number.isNaN(numericId) ? id : numericId,
         ) || app.graph?.getNodeById?.(id);
-        if (node?.dvdIOPaintEditor) {
-            node.dvdIOPaintEditor.register();
-            return node.dvdIOPaintEditor;
+        const editor = node?.dvdIOPaintEditor || node?.dvdSAMEditor;
+        if (editor) {
+            editor.register();
+            return editor;
+        }
+    }
+    const promptId = detail?.prompt_id || detail?.promptId;
+    if (promptId !== undefined && promptId !== null && promptId !== "") {
+        const normalizedPromptId = String(promptId);
+        for (const editor of uniqueEditors()) {
+            if (editor.promptId && String(editor.promptId) === normalizedPromptId) {
+                return editor;
+            }
         }
     }
     return null;
@@ -161,6 +184,27 @@ function findEditor(detail) {
 
 function uniqueEditors() {
     return new Set(editors.values());
+}
+
+
+function finishExecutionEditors(detail, message) {
+    const editor = findEditor(detail);
+    if (editor) {
+        editor.finishWithError(message);
+        return;
+    }
+    // Older ComfyUI frontends did not always include a node id on lifecycle
+    // errors.  Clear a lone active editor in that case so it cannot remain in
+    // the Running state forever; when several are active, only editors that
+    // have received an executing event are unblocked.
+    const active = [...uniqueEditors()].filter((candidate) => candidate.busy);
+    if (active.length === 1) {
+        active[0].finishWithError(message);
+        return;
+    }
+    for (const candidate of active) {
+        if (candidate.executionSeen) candidate.finishWithError(message);
+    }
 }
 
 
@@ -185,6 +229,7 @@ class DvDIOPaintEditor {
         this.executionSeen = false;
         this.resultProcessing = false;
         this.resultVersion = 0;
+        this.promptId = null;
 
         hideWidget(this.maskWidget);
         this.element = this.buildElement();
@@ -465,8 +510,20 @@ class DvDIOPaintEditor {
     point(event) {
         const bounds = this.maskCanvas.getBoundingClientRect();
         return {
-            x: (event.clientX - bounds.left) * this.maskCanvas.width / bounds.width,
-            y: (event.clientY - bounds.top) * this.maskCanvas.height / bounds.height,
+            x: Math.max(
+                0,
+                Math.min(
+                    this.maskCanvas.width - 1,
+                    (event.clientX - bounds.left) * this.maskCanvas.width / bounds.width,
+                ),
+            ),
+            y: Math.max(
+                0,
+                Math.min(
+                    this.maskCanvas.height - 1,
+                    (event.clientY - bounds.top) * this.maskCanvas.height / bounds.height,
+                ),
+            ),
         };
     }
 
@@ -790,6 +847,7 @@ class DvDIOPaintEditor {
         this.register();
         this.executionSeen = false;
         this.resultProcessing = false;
+        this.promptId = null;
         this.setBusy(true);
         this.setStatus("Uploading mask...", "working");
         try {
@@ -800,6 +858,7 @@ class DvDIOPaintEditor {
             if (this.autoRunWidget.value) {
                 this.setStatus("Queued...", "working");
                 const accepted = await app.queuePrompt();
+                this.promptId = accepted?.prompt_id || accepted?.promptId || this.promptId;
                 if (!this.busy) return;
                 if (accepted === false && !app.processingQueue) {
                     this.setBusy(false);
@@ -873,8 +932,9 @@ class DvDIOPaintEditor {
         }
     }
 
-    markExecuting() {
+    markExecuting(detail) {
         this.executionSeen = true;
+        this.promptId = detail?.prompt_id || detail?.promptId || this.promptId;
         this.setBusy(true);
         this.setStatus("Running...", "working");
     }
@@ -882,6 +942,7 @@ class DvDIOPaintEditor {
     finishWithError(message) {
         this.executionSeen = false;
         this.resultProcessing = false;
+        this.promptId = null;
         this.setBusy(false);
         this.setStatus(message, "error");
     }
@@ -906,16 +967,26 @@ class DvDIOPaintEditor {
             this.maskWidget.value = "";
             this.clearMask(false);
             this.setStatus("Updating canvas...", "working");
+            const afterImage = await loadOutputImage(result);
+            const beforeResults = (
+                output?.dvd_iopaint_before ||
+                output?.output?.dvd_iopaint_before
+            );
+            const beforeResult = Array.isArray(beforeResults)
+                ? beforeResults[0]
+                : beforeResults;
+            // The connected IMAGE input is not necessarily the image currently
+            // shown by the node's file widget.  The backend now returns an
+            // explicit before-preview from the tensor used for this execution;
+            // use it whenever available and fall back to the canvas for the
+            // original no-connection workflow.
+            const beforeImage = beforeResult
+                ? await loadOutputImage(beforeResult)
+                : this.baseCanvas;
+            this.showComparison(beforeImage, afterImage);
             const response = await fetch(outputImageUrl(result));
             if (!response.ok) throw new Error(`Result fetch failed: ${response.status}`);
             const blob = await response.blob();
-            const objectUrl = URL.createObjectURL(blob);
-            try {
-                const afterImage = await loadImage(objectUrl);
-                this.showComparison(this.baseCanvas, afterImage);
-            } finally {
-                URL.revokeObjectURL(objectUrl);
-            }
             const filename = (
                 `dvd_iopaint_${this.node.id}_result_${Date.now()}_${++this.resultVersion}.png`
             );
@@ -944,8 +1015,362 @@ class DvDIOPaintEditor {
         } finally {
             this.executionSeen = false;
             this.resultProcessing = false;
+            this.promptId = null;
             this.setBusy(false);
         }
+    }
+}
+
+
+class DvDSAMEditor {
+    constructor(node) {
+        this.node = node;
+        this.imageWidget = node.widgets.find((widget) => widget.name === "image");
+        this.pointsWidget = node.widgets.find((widget) => widget.name === "points");
+        this.autoRunWidget = node.widgets.find((widget) => widget.name === "auto_run");
+        this.clicks = [];
+        this.history = [];
+        this.busy = false;
+        this.loadGeneration = 0;
+        this.layoutQueued = false;
+        this.widgetHeight = 300;
+        this.executionSeen = false;
+        this.promptId = null;
+        this.registered = false;
+        hideWidget(this.pointsWidget);
+        this.element = this.buildElement();
+        this.domWidget = node.addDOMWidget(
+            "dvd_sam_canvas",
+            "dvd_sam_canvas",
+            this.element,
+            {
+                serialize: false,
+                hideOnZoom: false,
+                margin: 0,
+                getMinHeight: () => this.widgetHeight,
+                getMaxHeight: () => this.widgetHeight,
+                getHeight: () => this.widgetHeight,
+            },
+        );
+        const originalImageCallback = this.imageWidget.callback;
+        this.imageWidget.callback = (...args) => {
+            const result = originalImageCallback?.apply(this.imageWidget, args);
+            this.clearPoints(false);
+            void this.loadInput(this.imageWidget.value);
+            return result;
+        };
+        this.bindPointerEvents();
+        this.restore();
+    }
+
+    buildElement() {
+        const root = document.createElement("div");
+        root.className = "dvd-iopaint-editor dvd-sam-editor";
+        const toolbar = document.createElement("div");
+        toolbar.className = "dvd-iopaint-toolbar";
+        this.foregroundButton = iconButton("pi-plus", "Add foreground point (left click)", () => this.setMode(1));
+        this.backgroundButton = iconButton("pi-minus", "Add background point (right click)", () => this.setMode(0));
+        this.undoButton = iconButton("pi-undo", "Undo last point", () => this.undoPoint());
+        this.clearButton = iconButton("pi-trash", "Clear all points and mask", () => this.clearPoints(true));
+        this.runButton = iconButton("pi-play", "Run SAM segmentation", () => this.submitPoints());
+        this.status = document.createElement("span");
+        this.status.className = "dvd-iopaint-status";
+        this.status.textContent = "Choose an image; left click foreground, right click background";
+        toolbar.append(this.foregroundButton, this.backgroundButton, this.undoButton, this.clearButton, this.runButton, this.status);
+        this.stage = document.createElement("div");
+        this.stage.className = "dvd-iopaint-stage dvd-sam-stage";
+        this.baseCanvas = document.createElement("canvas");
+        this.baseCanvas.className = "dvd-iopaint-base";
+        this.maskCanvas = document.createElement("canvas");
+        this.maskCanvas.className = "dvd-sam-mask";
+        this.pointsCanvas = document.createElement("canvas");
+        this.pointsCanvas.className = "dvd-sam-points";
+        this.stage.append(this.baseCanvas, this.maskCanvas, this.pointsCanvas);
+        root.append(toolbar, this.stage);
+        this.setMode(1);
+        return root;
+    }
+
+    bindPointerEvents() {
+        this.pointsCanvas.addEventListener("contextmenu", (event) => event.preventDefault());
+        this.pointsCanvas.addEventListener("pointerdown", (event) => this.pointerDown(event));
+        this.element.addEventListener("wheel", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            app.canvas?.processMouseWheel?.(event);
+        }, { passive: false });
+    }
+
+    register() {
+        for (const [id, editor] of editors) if (editor === this) editors.delete(id);
+        for (const id of executionIds({ node: this.node.id, display_node: this.node.display_id })) editors.set(id, this);
+        this.registered = true;
+    }
+
+    remove() {
+        for (const [id, editor] of editors) if (editor === this) editors.delete(id);
+        this.registered = false;
+    }
+
+    setStatus(message, kind = "") {
+        this.status.textContent = message;
+        this.status.dataset.kind = kind;
+    }
+
+    setBusy(value) {
+        this.busy = value;
+        this.element.classList.toggle("busy", value);
+        this.updateButtons();
+    }
+
+    updateButtons() {
+        this.undoButton.disabled = this.busy || this.history.length === 0;
+        this.clearButton.disabled = this.busy || this.clicks.length === 0;
+        this.runButton.disabled = this.busy || this.clicks.length === 0;
+    }
+
+    setMode(label) {
+        this.mode = label;
+        this.foregroundButton.classList.toggle("active", label === 1);
+        this.backgroundButton.classList.toggle("active", label === 0);
+    }
+
+    point(event) {
+        const bounds = this.pointsCanvas.getBoundingClientRect();
+        return {
+            x: Math.max(
+                0,
+                Math.min(
+                    this.pointsCanvas.width - 1,
+                    (event.clientX - bounds.left) * this.pointsCanvas.width / bounds.width,
+                ),
+            ),
+            y: Math.max(
+                0,
+                Math.min(
+                    this.pointsCanvas.height - 1,
+                    (event.clientY - bounds.top) * this.pointsCanvas.height / bounds.height,
+                ),
+            ),
+        };
+    }
+
+    pointerDown(event) {
+        if (this.busy || !this.baseCanvas.width || (event.button !== 0 && event.button !== 2)) return;
+        event.preventDefault();
+        this.history.push(JSON.stringify(this.clicks));
+        if (this.history.length > 24) this.history.shift();
+        const point = this.point(event);
+        const label = event.button === 2 ? 0 : this.mode;
+        this.clicks.push([Number(point.x.toFixed(2)), Number(point.y.toFixed(2)), label]);
+        this.pointsWidget.value = JSON.stringify(this.clicks);
+        this.renderPoints();
+        this.updateButtons();
+        this.setStatus(`${this.clicks.length} point(s) · ${label ? "foreground" : "background"}`, "ready");
+        if (this.autoRunWidget?.value) void this.submitPoints();
+    }
+
+    renderPoints() {
+        const context = this.pointsCanvas.getContext("2d");
+        context.clearRect(0, 0, this.pointsCanvas.width, this.pointsCanvas.height);
+        for (const [x, y, label] of this.clicks) {
+            context.beginPath();
+            context.arc(x, y, Math.max(7, Math.min(this.pointsCanvas.width, this.pointsCanvas.height) * 0.012), 0, Math.PI * 2);
+            context.fillStyle = label ? "rgb(80 220 130 / 85%)" : "rgb(235 90 90 / 85%)";
+            context.fill();
+            context.lineWidth = 2;
+            context.strokeStyle = "#ffffff";
+            context.stroke();
+        }
+    }
+
+    async undoPoint() {
+        const snapshot = this.history.pop();
+        if (!snapshot) return;
+        this.clicks = JSON.parse(snapshot);
+        this.pointsWidget.value = JSON.stringify(this.clicks);
+        this.renderPoints();
+        this.updateButtons();
+        this.setStatus("Point restored", "ready");
+    }
+
+    clearPoints(recordHistory) {
+        if (recordHistory && this.clicks.length) this.history.push(JSON.stringify(this.clicks));
+        this.clicks = [];
+        if (this.pointsWidget) this.pointsWidget.value = "[]";
+        this.maskCanvas.getContext("2d").clearRect(0, 0, this.maskCanvas.width, this.maskCanvas.height);
+        this.renderPoints();
+        this.updateButtons();
+        this.setStatus("Points cleared", "ready");
+    }
+
+    async submitPoints() {
+        if (this.busy || !this.clicks.length) return;
+        this.register();
+        this.pointsWidget.value = JSON.stringify(this.clicks);
+        this.promptId = null;
+        this.setBusy(true);
+        this.setStatus("Queued SAM segmentation...", "working");
+        try {
+            const accepted = await app.queuePrompt();
+            this.promptId = accepted?.prompt_id || accepted?.promptId || this.promptId;
+            if (accepted === false && !app.processingQueue) throw new Error("Queue validation failed");
+        } catch (error) {
+            this.setBusy(false);
+            this.setStatus(error.message || "Queue failed", "error");
+        }
+    }
+
+    markExecuting(detail) {
+        this.executionSeen = true;
+        this.promptId = detail?.prompt_id || detail?.promptId || this.promptId;
+        this.setBusy(true);
+        this.setStatus("Running SAM...", "working");
+    }
+
+    finishWithError(message) {
+        this.executionSeen = false;
+        this.promptId = null;
+        this.setBusy(false);
+        this.setStatus(message, "error");
+    }
+
+    async handleExecuted(output) {
+        const values = output?.dvd_sam_mask || output?.output?.dvd_sam_mask;
+        const sourceValues = output?.dvd_sam_source || output?.output?.dvd_sam_source;
+        const result = Array.isArray(values) ? values[0] : values;
+        const sourceResult = Array.isArray(sourceValues) ? sourceValues[0] : sourceValues;
+        if (result) {
+            try {
+                const [image, sourceImage] = await Promise.all([
+                    loadOutputImage(result),
+                    sourceResult ? loadOutputImage(sourceResult) : Promise.resolve(null),
+                ]);
+                if (sourceImage) {
+                    this.resizeCanvases(sourceImage.naturalWidth, sourceImage.naturalHeight);
+                    this.baseCanvas.getContext("2d").drawImage(sourceImage, 0, 0);
+                    this.renderPoints();
+                    this.fitNodeToImage();
+                }
+                const context = this.maskCanvas.getContext("2d");
+                const previewCanvas = document.createElement("canvas");
+                previewCanvas.width = this.maskCanvas.width;
+                previewCanvas.height = this.maskCanvas.height;
+                const previewContext = previewCanvas.getContext("2d", { willReadFrequently: true });
+                previewContext.drawImage(image, 0, 0, previewCanvas.width, previewCanvas.height);
+                const pixels = previewContext.getImageData(0, 0, previewCanvas.width, previewCanvas.height);
+                for (let index = 0; index < pixels.data.length; index += 4) {
+                    const value = pixels.data[index];
+                    pixels.data[index] = 255;
+                    pixels.data[index + 1] = 255;
+                    pixels.data[index + 2] = 255;
+                    pixels.data[index + 3] = value;
+                }
+                context.clearRect(0, 0, this.maskCanvas.width, this.maskCanvas.height);
+                context.putImageData(pixels, 0, 0);
+                this.setStatus("SAM mask updated", "ready");
+            } catch (error) {
+                this.setStatus(error.message || "Mask preview failed", "error");
+            }
+        } else {
+            this.setStatus("SAM finished without mask preview", "error");
+        }
+        this.executionSeen = false;
+        this.promptId = null;
+        this.setBusy(false);
+    }
+
+    resizeCanvases(width, height) {
+        for (const canvas of [this.baseCanvas, this.maskCanvas, this.pointsCanvas]) {
+            canvas.width = width;
+            canvas.height = height;
+        }
+        this.stage.style.setProperty("--dvd-aspect", String(width / height));
+        this.renderPoints();
+    }
+
+    fitNodeToImage() {
+        if (this.layoutQueued) return;
+        this.layoutQueued = true;
+        requestAnimationFrame(() => {
+            this.layoutQueued = false;
+            const nodeWidth = Math.max(500, this.node.size?.[0] || 500);
+            const availableWidth = Math.max(100, nodeWidth - 30);
+            const aspect = (this.baseCanvas.width || 1) / (this.baseCanvas.height || 1);
+            const width = Math.min(availableWidth, 520);
+            const height = Math.max(120, width / aspect);
+            this.stage.style.width = `${Math.round(width)}px`;
+            this.stage.style.height = `${Math.round(height)}px`;
+            this.widgetHeight = Math.ceil(height + 52);
+            this.element.style.setProperty("--dvd-widget-height", `${this.widgetHeight}px`);
+            const rows = (this.node.widgets || []).filter((widget) => widget !== this.domWidget && !widget.hidden && !String(widget.type || "").startsWith("converted-widget")).length;
+            const titleHeight = globalThis.LiteGraph?.NODE_TITLE_HEIGHT ?? 30;
+            const rowHeight = (globalThis.LiteGraph?.NODE_WIDGET_HEIGHT ?? 20) + 4;
+            this.node.setSize([nodeWidth, titleHeight + rows * rowHeight + this.widgetHeight + 12]);
+            this.node.graph?.setDirtyCanvas(true, true);
+        });
+    }
+
+    async loadInput(filename) {
+        if (!filename) {
+            this.setStatus("Choose an image");
+            return false;
+        }
+        const generation = ++this.loadGeneration;
+        try {
+            const image = await loadImage(inputImageUrl(filename));
+            if (generation !== this.loadGeneration) return false;
+            this.resizeCanvases(image.naturalWidth, image.naturalHeight);
+            this.baseCanvas.getContext("2d").drawImage(image, 0, 0);
+            this.setStatus(`${image.naturalWidth} × ${image.naturalHeight}`, "ready");
+            this.fitNodeToImage();
+            return true;
+        } catch (error) {
+            this.setStatus("Image load failed", "error");
+            return false;
+        }
+    }
+
+    setImageWidget(filename) {
+        const values = this.imageWidget.options?.values;
+        if (Array.isArray(values) && !values.includes(filename)) values.push(filename);
+        this.imageWidget.value = filename;
+    }
+
+    droppedImageFile(event) {
+        return [...(event.dataTransfer?.files || [])].find(isImageFile) || null;
+    }
+
+    async replaceImageFile(file) {
+        if (!isImageFile(file) || this.busy) return false;
+        this.setBusy(true);
+        this.setStatus("Uploading image...", "working");
+        try {
+            const inputPath = await uploadImage(file, file.name, "dvd_iopaint");
+            this.setImageWidget(inputPath);
+            this.clearPoints(false);
+            await this.loadInput(inputPath);
+            this.setStatus("Image replaced", "ready");
+            return true;
+        } catch (error) {
+            this.setStatus(error.message || "Image upload failed", "error");
+            return false;
+        } finally {
+            this.setBusy(false);
+        }
+    }
+
+    async restore() {
+        this.register();
+        await this.loadInput(this.imageWidget.value);
+        try {
+            const parsed = JSON.parse(this.pointsWidget.value || "[]");
+            this.clicks = Array.isArray(parsed) ? parsed : [];
+        } catch {
+            this.clicks = [];
+        }
+        this.renderPoints();
+        this.updateButtons();
     }
 }
 
@@ -955,22 +1380,27 @@ api.addEventListener("executed", ({ detail }) => {
 });
 
 api.addEventListener("executing", ({ detail }) => {
-    findEditor(detail)?.markExecuting();
+    const editor = findEditor(detail);
+    if (!editor) return;
+    editor.markExecuting(detail);
 });
 
 api.addEventListener("execution_error", ({ detail }) => {
-    findEditor(detail)?.finishWithError(
+    finishExecutionEditors(
+        detail,
         detail?.exception_message || "Execution failed",
     );
 });
 
 api.addEventListener("execution_interrupted", ({ detail }) => {
-    findEditor(detail)?.finishWithError("Execution interrupted");
+    finishExecutionEditors(detail, "Execution interrupted");
 });
 
-api.addEventListener("execution_success", () => {
+api.addEventListener("execution_success", ({ detail }) => {
     setTimeout(() => {
-        for (const editor of uniqueEditors()) {
+        const target = findEditor(detail);
+        const candidates = target ? [target] : [...uniqueEditors()];
+        for (const editor of candidates) {
             if (editor.busy && editor.executionSeen && !editor.resultProcessing) {
                 editor.finishWithError("Finished without result");
             }
@@ -1045,6 +1475,77 @@ app.registerExtension({
         nodeType.prototype.onRemoved = function () {
             this.dvdIOPaintEditor?.remove();
             return originalRemoved?.apply(this, arguments);
+        };
+    },
+});
+
+
+app.registerExtension({
+    name: "DvD.IOPaint.SAMInteractiveSegmentation",
+    async beforeRegisterNodeDef(nodeType, nodeData) {
+        if (nodeData.name !== "DvD_IOPaint_SAM_Interactive_Segmentation") return;
+
+        const originalCreated = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function () {
+            const result = originalCreated?.apply(this, arguments);
+            this.dvdSAMEditor = new DvDSAMEditor(this);
+            this.setSize([Math.max(this.size[0], 500), Math.max(this.size[1], 500)]);
+            return result;
+        };
+
+        const originalResized = nodeType.prototype.onResize;
+        nodeType.prototype.onResize = function () {
+            const result = originalResized?.apply(this, arguments);
+            this.dvdSAMEditor?.fitNodeToImage();
+            return result;
+        };
+
+        const originalAdded = nodeType.prototype.onAdded;
+        nodeType.prototype.onAdded = function () {
+            const result = originalAdded?.apply(this, arguments);
+            this.dvdSAMEditor?.register();
+            return result;
+        };
+
+        const originalDrawBackground = nodeType.prototype.onDrawBackground;
+        nodeType.prototype.onDrawBackground = function () {
+            // The SAM source and mask previews already render inside the DOM
+            // editor. Suppress ComfyUI's duplicate native image thumbnail.
+            this.imgs = [];
+            this.images = [];
+            return originalDrawBackground?.apply(this, arguments);
+        };
+
+        const originalConfigured = nodeType.prototype.onConfigure;
+        nodeType.prototype.onConfigure = function () {
+            const result = originalConfigured?.apply(this, arguments);
+            setTimeout(() => this.dvdSAMEditor?.restore(), 0);
+            return result;
+        };
+
+        const originalRemoved = nodeType.prototype.onRemoved;
+        nodeType.prototype.onRemoved = function () {
+            this.dvdSAMEditor?.remove();
+            return originalRemoved?.apply(this, arguments);
+        };
+
+        const originalDragOver = nodeType.prototype.onDragOver;
+        nodeType.prototype.onDragOver = function (event) {
+            const file = this.dvdSAMEditor?.droppedImageFile?.(event);
+            if (file) return true;
+            return originalDragOver?.apply(this, arguments) ?? false;
+        };
+
+        const originalDragDrop = nodeType.prototype.onDragDrop;
+        nodeType.prototype.onDragDrop = function (event) {
+            const file = this.dvdSAMEditor?.droppedImageFile?.(event);
+            if (file) {
+                event.preventDefault();
+                event.stopPropagation?.();
+                void this.dvdSAMEditor.replaceImageFile(file);
+                return true;
+            }
+            return originalDragDrop?.apply(this, arguments) ?? false;
         };
     },
 });

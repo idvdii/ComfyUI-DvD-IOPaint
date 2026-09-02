@@ -132,6 +132,8 @@
 
 .dvd-iopaint-base,
 .dvd-iopaint-mask,
+.dvd-sam-mask,
+.dvd-sam-points,
 .dvd-iopaint-comparison-before,
 .dvd-iopaint-comparison-after canvas {
     position: absolute;
@@ -150,6 +152,23 @@
     opacity: 0.62;
     cursor: crosshair;
     touch-action: none;
+}
+
+.dvd-sam-mask {
+    z-index: 2;
+    opacity: 0.58;
+    pointer-events: none;
+}
+
+.dvd-sam-points {
+    z-index: 3;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.dvd-sam-editor.busy .dvd-sam-points {
+    cursor: progress;
+    pointer-events: none;
 }
 
 .dvd-iopaint-brush-cursor {
