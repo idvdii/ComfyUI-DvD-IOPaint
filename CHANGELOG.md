@@ -1,5 +1,11 @@
 # Changelog / 更新日志
 
+## Unreleased / 未发布
+
+- Added the official direct download link, exact filename and target directory
+  for every downloadable model in both READMEs.
+  / 在中英文 README 的模型表格中补充全部可下载模型的官方直链、准确文件名和存放目录。
+
 ## 2.0.0 - 2026-09-02
 
 ### Added / 新增

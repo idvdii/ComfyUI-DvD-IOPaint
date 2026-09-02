@@ -142,43 +142,47 @@ when you need a transparent composite.
 
 Download sizes are rounded so users can estimate disk and network use.
 
-| Model | Download | Notes |
-| --- | ---: | --- |
-| LaMa | ~196 MiB | General-purpose large-mask removal |
-| Anime LaMa | ~196 MiB | Anime and manga-oriented LaMa weights |
-| AOT Manga/Anime | ~22 MiB | Lightweight color anime/manga option |
-| MAT | ~239 MiB | Structure-aware general inpainting |
-| MIGAN | ~27 MiB | Lightweight 512-based inpainting |
-| LDM | ~1.6 GiB, 3 files | Diffusion-based erase model; slower and heavy |
-| ZITS | ~600 MiB, 4 files | Structure and line-aware inpainting |
-| FcF | ~327 MiB | Fourier-based large-hole completion |
-| Manga B&W Semantic | ~235 MiB, 2 files | Black-and-white manga only; masked output is grayscale |
-| OpenCV Telea | 0 MiB | Fast classical inpainting for small defects |
-| OpenCV Navier-Stokes | 0 MiB | Fast classical inpainting for small defects |
+| Model | Download | Model files | Directory | Notes |
+| --- | ---: | --- | --- | --- |
+| LaMa | ~196 MiB | [big-lama.pt](https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt) | `erase` | General-purpose large-mask removal |
+| Anime LaMa | ~196 MiB | [anime-manga-big-lama.pt](https://github.com/Sanster/models/releases/download/AnimeMangaInpainting/anime-manga-big-lama.pt) | `erase` | Anime and manga-oriented LaMa weights |
+| AOT Manga/Anime | ~22 MiB | [aot_traced.pt](https://huggingface.co/ogkalu/aot-inpainting/resolve/42ffc84ff1bd46dd95f1c5a41e83ee7e98f39189/aot_traced.pt) | `erase` | Lightweight color anime/manga option |
+| MAT | ~239 MiB | [Places_512_FullData_G.pth](https://github.com/Sanster/models/releases/download/add_mat/Places_512_FullData_G.pth) | `erase` | Structure-aware general inpainting |
+| MIGAN | ~27 MiB | [migan_traced.pt](https://github.com/Sanster/models/releases/download/migan/migan_traced.pt) | `erase` | Lightweight 512-based inpainting |
+| LDM | ~1.6 GiB, 3 files | [encode](https://github.com/Sanster/models/releases/download/add_ldm/cond_stage_model_encode.pt) · [decode](https://github.com/Sanster/models/releases/download/add_ldm/cond_stage_model_decode.pt) · [diffusion](https://github.com/Sanster/models/releases/download/add_ldm/diffusion.pt) | `erase` | Diffusion-based erase model; slower and heavy |
+| ZITS | ~600 MiB, 4 files | [inpaint](https://github.com/Sanster/models/releases/download/add_zits/zits-inpaint-0717.pt) · [edge-line](https://github.com/Sanster/models/releases/download/add_zits/zits-edge-line-0717.pt) · [structure](https://github.com/Sanster/models/releases/download/add_zits/zits-structure-upsample-0717.pt) · [wireframe](https://github.com/Sanster/models/releases/download/add_zits/zits-wireframe-0717.pt) | `erase` | Structure and line-aware inpainting |
+| FcF | ~327 MiB | [places_512_G.pth](https://github.com/Sanster/models/releases/download/add_fcf/places_512_G.pth) | `erase` | Fourier-based large-hole completion |
+| Manga B&W Semantic | ~235 MiB, 2 files | [inpaintor](https://github.com/Sanster/models/releases/download/manga/manga_inpaintor.jit) · [line model](https://github.com/Sanster/models/releases/download/manga/erika.jit) | `erase` | Black-and-white manga only; masked output is grayscale |
+| OpenCV Telea | 0 MiB | No download required | Not applicable | Fast classical inpainting for small defects |
+| OpenCV Navier-Stokes | 0 MiB | No download required | Not applicable | Fast classical inpainting for small defects |
 
 Mask Generator models:
 
-| Model | Download (approx.) | Directory |
-| --- | ---: | --- |
-| Anime Segmentation / ISNet Anime | 170 MiB | `mask/anime_seg` |
-| RemoveBG / U2Net | 176 MiB | `mask/removebg` |
-| RemoveBG / U2NetP | 4.7 MiB | `mask/removebg` |
-| RemoveBG / ISNet General | 167 MiB | `mask/removebg` |
-| RemoveBG / BiRefNet Lite | 90 MiB | `mask/removebg` |
-| RemoveBG / BiRefNet | 443 MiB | `mask/removebg` |
-| RemoveBG / Silueta | 44 MiB | `mask/removebg` |
+| Model | Download (approx.) | Model file | Directory |
+| --- | ---: | --- | --- |
+| Anime Segmentation / ISNet Anime | 170 MiB | [isnet-anime.onnx](https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-anime.onnx) | `mask/anime_seg` |
+| RemoveBG / U2Net | 176 MiB | [u2net.onnx](https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx) | `mask/removebg` |
+| RemoveBG / U2NetP | 4.7 MiB | [u2netp.onnx](https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx) | `mask/removebg` |
+| RemoveBG / ISNet General | 167 MiB | [isnet-general-use.onnx](https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx) | `mask/removebg` |
+| RemoveBG / BiRefNet Lite | 90 MiB | [BiRefNet General Lite](https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx) | `mask/removebg` |
+| RemoveBG / BiRefNet | 443 MiB | [BiRefNet General](https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx) | `mask/removebg` |
+| RemoveBG / Silueta | 44 MiB | [silueta.onnx](https://github.com/danielgatis/rembg/releases/download/v0.0.0/silueta.onnx) | `mask/removebg` |
 
 SAM interactive-segmentation models:
 
-| Model | Download (approx.) | Directory |
-| --- | ---: | --- |
-| SAM ViT-B | 375 MiB | `interactive_seg` |
-| SAM ViT-L | 1.25 GiB | `interactive_seg` |
-| SAM ViT-H | 2.56 GiB | `interactive_seg` |
+| Model | Download (approx.) | Model file | Directory |
+| --- | ---: | --- | --- |
+| SAM ViT-B | 375 MiB | [sam_vit_b_01ec64.pth](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth) | `interactive_seg` |
+| SAM ViT-L | 1.25 GiB | [sam_vit_l_0b3195.pth](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth) | `interactive_seg` |
+| SAM ViT-H | 2.56 GiB | [sam_vit_h_4b8939.pth](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth) | `interactive_seg` |
 
 The first use of a neural model requires access to its GitHub or Hugging Face
 download URL. Interrupted or invalid files are removed, then downloaded again
 on the next run.
+
+Automatic download is recommended. For a manual download, keep the filename
+shown in the table and place it in the listed directory below
+`ComfyUI/models/iopaint`; multi-file models require every linked file.
 
 Model layout:
 

@@ -131,42 +131,45 @@ Mask Generator 同时输出 `foreground` 预览，默认背景为黑色。可在
 
 文件大小为约数，方便估算磁盘和网络占用。
 
-| 模型 | 下载大小 | 说明 |
-| --- | ---: | --- |
-| LaMa | 约 196 MiB | 通用大遮罩消除 |
-| Anime LaMa | 约 196 MiB | 面向动漫和漫画的 LaMa 权重 |
-| AOT Manga/Anime | 约 22 MiB | 轻量彩色动漫/漫画选项 |
-| MAT | 约 239 MiB | 注重结构的通用修复 |
-| MIGAN | 约 27 MiB | 轻量级 512 尺寸修复 |
-| LDM | 约 1.6 GiB，3 个文件 | 基于扩散的消除模型，速度较慢且占用较大 |
-| ZITS | 约 600 MiB，4 个文件 | 注重结构和线稿的修复 |
-| FcF | 约 327 MiB | 适合较大缺口的频域修复 |
-| Manga B&W Semantic | 约 235 MiB，2 个文件 | 仅适合黑白漫画，遮罩区域输出为灰度 |
-| OpenCV Telea | 0 MiB | 适合小缺陷的快速传统修复 |
-| OpenCV Navier-Stokes | 0 MiB | 适合小缺陷的快速传统修复 |
+| 模型 | 下载大小 | 模型文件 | 目录 | 说明 |
+| --- | ---: | --- | --- | --- |
+| LaMa | 约 196 MiB | [big-lama.pt](https://github.com/Sanster/models/releases/download/add_big_lama/big-lama.pt) | `erase` | 通用大遮罩消除 |
+| Anime LaMa | 约 196 MiB | [anime-manga-big-lama.pt](https://github.com/Sanster/models/releases/download/AnimeMangaInpainting/anime-manga-big-lama.pt) | `erase` | 面向动漫和漫画的 LaMa 权重 |
+| AOT Manga/Anime | 约 22 MiB | [aot_traced.pt](https://huggingface.co/ogkalu/aot-inpainting/resolve/42ffc84ff1bd46dd95f1c5a41e83ee7e98f39189/aot_traced.pt) | `erase` | 轻量彩色动漫/漫画选项 |
+| MAT | 约 239 MiB | [Places_512_FullData_G.pth](https://github.com/Sanster/models/releases/download/add_mat/Places_512_FullData_G.pth) | `erase` | 注重结构的通用修复 |
+| MIGAN | 约 27 MiB | [migan_traced.pt](https://github.com/Sanster/models/releases/download/migan/migan_traced.pt) | `erase` | 轻量级 512 尺寸修复 |
+| LDM | 约 1.6 GiB，3 个文件 | [编码](https://github.com/Sanster/models/releases/download/add_ldm/cond_stage_model_encode.pt) · [解码](https://github.com/Sanster/models/releases/download/add_ldm/cond_stage_model_decode.pt) · [扩散](https://github.com/Sanster/models/releases/download/add_ldm/diffusion.pt) | `erase` | 基于扩散的消除模型，速度较慢且占用较大 |
+| ZITS | 约 600 MiB，4 个文件 | [修复](https://github.com/Sanster/models/releases/download/add_zits/zits-inpaint-0717.pt) · [边缘线稿](https://github.com/Sanster/models/releases/download/add_zits/zits-edge-line-0717.pt) · [结构](https://github.com/Sanster/models/releases/download/add_zits/zits-structure-upsample-0717.pt) · [线框](https://github.com/Sanster/models/releases/download/add_zits/zits-wireframe-0717.pt) | `erase` | 注重结构和线稿的修复 |
+| FcF | 约 327 MiB | [places_512_G.pth](https://github.com/Sanster/models/releases/download/add_fcf/places_512_G.pth) | `erase` | 适合较大缺口的频域修复 |
+| Manga B&W Semantic | 约 235 MiB，2 个文件 | [修复模型](https://github.com/Sanster/models/releases/download/manga/manga_inpaintor.jit) · [线稿模型](https://github.com/Sanster/models/releases/download/manga/erika.jit) | `erase` | 仅适合黑白漫画，遮罩区域输出为灰度 |
+| OpenCV Telea | 0 MiB | 无需下载 | 不适用 | 适合小缺陷的快速传统修复 |
+| OpenCV Navier-Stokes | 0 MiB | 无需下载 | 不适用 | 适合小缺陷的快速传统修复 |
 
 Mask Generator 当前支持的模型：
 
-| 模型 | 下载大小（约） | 目录 |
-| --- | ---: | --- |
-| Anime Segmentation / ISNet Anime | 170 MiB | `mask/anime_seg` |
-| RemoveBG / U2Net | 176 MiB | `mask/removebg` |
-| RemoveBG / U2NetP | 4.7 MiB | `mask/removebg` |
-| RemoveBG / ISNet General | 167 MiB | `mask/removebg` |
-| RemoveBG / BiRefNet Lite | 90 MiB | `mask/removebg` |
-| RemoveBG / BiRefNet | 443 MiB | `mask/removebg` |
-| RemoveBG / Silueta | 44 MiB | `mask/removebg` |
+| 模型 | 下载大小（约） | 模型文件 | 目录 |
+| --- | ---: | --- | --- |
+| Anime Segmentation / ISNet Anime | 170 MiB | [isnet-anime.onnx](https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-anime.onnx) | `mask/anime_seg` |
+| RemoveBG / U2Net | 176 MiB | [u2net.onnx](https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx) | `mask/removebg` |
+| RemoveBG / U2NetP | 4.7 MiB | [u2netp.onnx](https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx) | `mask/removebg` |
+| RemoveBG / ISNet General | 167 MiB | [isnet-general-use.onnx](https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx) | `mask/removebg` |
+| RemoveBG / BiRefNet Lite | 90 MiB | [BiRefNet General Lite](https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx) | `mask/removebg` |
+| RemoveBG / BiRefNet | 443 MiB | [BiRefNet General](https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx) | `mask/removebg` |
+| RemoveBG / Silueta | 44 MiB | [silueta.onnx](https://github.com/danielgatis/rembg/releases/download/v0.0.0/silueta.onnx) | `mask/removebg` |
 
 SAM 交互式分割模型：
 
-| 模型 | 下载大小（约） | 目录 |
-| --- | ---: | --- |
-| SAM ViT-B | 375 MiB | `interactive_seg` |
-| SAM ViT-L | 1.25 GiB | `interactive_seg` |
-| SAM ViT-H | 2.56 GiB | `interactive_seg` |
+| 模型 | 下载大小（约） | 模型文件 | 目录 |
+| --- | ---: | --- | --- |
+| SAM ViT-B | 375 MiB | [sam_vit_b_01ec64.pth](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth) | `interactive_seg` |
+| SAM ViT-L | 1.25 GiB | [sam_vit_l_0b3195.pth](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth) | `interactive_seg` |
+| SAM ViT-H | 2.56 GiB | [sam_vit_h_4b8939.pth](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth) | `interactive_seg` |
 
 神经网络模型首次使用时需要访问对应的 GitHub 或 Hugging Face 下载地址。
 下载中断或校验失败的文件会被删除，下次运行时自动重新下载。
+
+推荐让节点自动下载。如果需要手动下载，请保持表格所列文件名不变，并放入
+`ComfyUI/models/iopaint` 下表格指定的目录；多文件模型需要下载该行的全部文件。
 
 模型目录结构如下：
 
